@@ -15,14 +15,14 @@ public class ChatClient {
          System.out.println("Connected to the chat server successfully.");
 
          BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-         PrintWriter writer = new PrintWriter(socket.getOutputStream());
+         PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
          BufferedReader userReader = new BufferedReader(new InputStreamReader(System.in));
 
          new Thread(() -> {
             try {
-               String message;
-               while ((message = reader.readLine()) != null) {
-                  System.out.println(message);
+               String serverMessage;
+               while ((serverMessage = reader.readLine()) != null) {
+                  System.out.println(serverMessage);
                }
             } catch (IOException e) {
                System.out.println("Disconnected from chat server.");
@@ -30,13 +30,14 @@ public class ChatClient {
          }).start();
 
          // get name from user and send it to the server
-         System.out.println(reader.readLine());
-         name = userReader.rea
+         System.out.print(reader.readLine());
+         name = userReader.readLine();
+         writer.println(name);
 
          // send messages to the server
          String message;
-         while((message = userReader.readLine()) != null){
-            if(message.equalsIgnoreCase("quit")){
+         while ((message = userReader.readLine()) != null) {
+            if (message.equalsIgnoreCase("quit")) {
                writer.println(message);
                break;
             }
