@@ -3,15 +3,15 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class ChatServer {
+public class server {
    private static final int PORT = 12345;
    private static final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
    private static final Map<String, ClientHandler> clientMap = new ConcurrentHashMap<>();
 
    public static void main(String[] args) {
-      System.out.println("Server is listening on port " + PORT);
-      try (
-            ServerSocket serverSocket = new ServerSocket(PORT)) {
+      System.out.println("Server starting on port " + PORT);
+
+      try (ServerSocket serverSocket = new ServerSocket(PORT)) {
          while (true) {
             Socket clientSocket = serverSocket.accept();
             ClientHandler clientHandler = new ClientHandler(clientSocket);
@@ -19,25 +19,25 @@ public class ChatServer {
             new Thread(clientHandler).start();
          }
       } catch (IOException e) {
-         System.err.println("Server Error: " + e.getMessage());
+         System.err.println("Server exception: " + e.getMessage());
       }
    }
 
-   public static void broadcast(String message, ClientHandler sender) {
+   public static void broadcast(String message, ClientHandler excludeClient) {
       for (ClientHandler client : clients) {
-         if (client != sender) {
+         if (client != excludeClient) {
             client.sendMessage(message);
          }
       }
    }
 
-   public static void addClient(String name, ClientHandler client) {
+   public static void registerClient(String name, ClientHandler client) {
       if (clientMap.containsKey(name)) {
-         client.sendMessage("Error: This name is already taken. Please choose a different name.");
+         client.sendMessage("ERROR: Name already taken. Please choose another name.");
          client.shutdown();
       } else {
          clientMap.put(name, client);
-         broadcast(name + " has entered the chat!", client);
+         broadcast(name + " has joined the chat!", client);
       }
    }
 
@@ -49,8 +49,8 @@ public class ChatServer {
 
    private static class ClientHandler implements Runnable {
       private Socket socket;
-      private PrintWriter writer;
-      private BufferedReader reader;
+      private PrintWriter out;
+      private BufferedReader in;
       private String name;
 
       public ClientHandler(Socket socket) {
@@ -60,47 +60,43 @@ public class ChatServer {
       @Override
       public void run() {
          try {
-            writer = new PrintWriter(socket.getOutputStream(), true);
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // read client name
-            writer.println("Please enter your name: ");
-            name = reader.readLine();
-            addClient(name, this);
+            // Get client name
+            out.println("Please enter your name:");
+            name = in.readLine();
+            registerClient(name, this);
 
-            writer.println("Welcome to the chat, " + name + "! Please type 'quit' if you wish to leave the chat.");
-
-            String message;
-            while ((message = reader.readLine()) != null) {
-               if (message.equalsIgnoreCase("quit")) {
+            String clientMessage;
+            while ((clientMessage = in.readLine()) != null) {
+               if (clientMessage.equalsIgnoreCase("terminate")) {
                   break;
                }
-               broadcast(name + ": " + message, this);
+               broadcast(name + ": " + clientMessage, this);
             }
          } catch (IOException e) {
-            System.out.println("Error encountered with client " + name + ": " + e.getMessage());
+            System.out.println("Error with client " + name + ": " + e.getMessage());
          } finally {
             try {
                removeClient(name, this);
                socket.close();
             } catch (IOException e) {
-               System.out.println("Error encountered while closing socket for client " + name);
+               System.out.println("Error closing socket for " + name);
             }
          }
       }
 
       public void sendMessage(String message) {
-         writer.println(message);
+         out.println(message);
       }
 
       public void shutdown() {
          try {
             socket.close();
          } catch (IOException e) {
-            // do nothing
+            // Ignore
          }
       }
-
    }
-
 }
